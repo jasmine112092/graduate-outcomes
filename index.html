@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>毕业生去向工作台</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
 <meta name="theme-color" content="#8B0000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,6 +50,7 @@
   }
   header button:active { transform: scale(0.96); }
   header button.hidden { display: none; }
+  .hidden { display: none !important; }
 
   main { flex: 1; max-width: 1600px; width: 100%; margin: 0 auto; padding: 16px; }
   .stack { display: flex; flex-direction: column; gap: 18px; }
@@ -147,6 +149,48 @@
     .section-title { font-size: 16px; }
     th, td { padding: 8px; font-size: 13px; }
   }
+
+  /* ---- 管理员/只读模式 ---- */
+  #lockBtn { font-size: 16px; padding: 6px 10px; line-height: 1; }
+  #lockBtn.locked { background: #fff; color: var(--red); }
+  #lockBtn.unlocked { background: var(--red-light); color: #fff; }
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-box {
+    background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 340px;
+    box-shadow: 0 12px 40px rgba(139,0,0,0.3); border-top: 5px solid var(--red);
+  }
+  .modal-box h3 { color: var(--red); font-size: 18px; margin-bottom: 8px; }
+  .modal-desc { color: var(--muted); font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
+  .modal-box input[type="password"] {
+    width: 100%; border: 1px solid var(--red-border); border-radius: 8px;
+    padding: 10px 12px; font-size: 15px; color: var(--text); outline: none;
+  }
+  .modal-box input[type="password"]:focus { border-color: var(--red); box-shadow: 0 0 0 2px rgba(139,0,0,0.12); }
+  .modal-err { color: #dc2626; font-size: 13px; min-height: 20px; margin-top: 6px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .modal-actions button {
+    flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+  }
+  .btn-ghost { background: #fff; color: var(--red); border: 1px solid var(--red-border) !important; }
+  .btn-solid { background: var(--red); color: #fff; }
+
+  /* 只读模式：隐藏所有编辑控件 */
+  body.readonly .edit-only { display: none !important; }
+  body.readonly input.name-input, body.readonly input.count-input { pointer-events: none; background: #f5f5f5; color: var(--muted); }
+  .banner-readonly {
+    display: none; background: #fff8f8; border: 1px dashed var(--red-border); color: var(--red-dark);
+    padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 12px;
+  }
+  body.readonly .banner-readonly { display: block; }
+  .badge-admin {
+    display: none; background: var(--red); color: #fff; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; vertical-align: middle; margin-left: 6px;
+  }
+  body:not(.readonly) .badge-admin { display: inline-block; }
+
 </style>
 </head>
 <body>
@@ -161,6 +205,7 @@
     </div>
     <div class="actions">
       <button id="installBtn" class="hidden">安装到主屏幕</button>
+      <button id="lockBtn" title="管理员登录 / 退出编辑">🔒</button>
     </div>
   </header>
 
@@ -169,6 +214,9 @@
       <div class="status-bar">
         <div>数据会自动保存到本机浏览器，关闭后再打开内容不丢。</div>
         <div class="saved-time" id="savedTime"></div>
+      </div>
+      <div class="banner-readonly">
+        👁 当前为只读模式（访客）。<span class="badge-admin">管理员</span> 可点击右上角 🔒 登录后编辑数据。
       </div>
 
       <div class="grid stat-grid">
@@ -218,7 +266,7 @@
               <option value="countAsc">录取人次 ↑</option>
               <option value="name">国家名称</option>
             </select>
-            <button class="secondary" onclick="resetData()">恢复默认</button>
+            <button class="secondary edit-only" onclick="resetData()">恢复默认</button>
           </div>
         </div>
         <div style="overflow-x:auto;">
@@ -234,6 +282,20 @@
       <div class="footer-note">本工作台为 PWA 应用，首次加载后可离线使用。数据仅保存在当前浏览器中。</div>
     </div>
   </main>
+</div>
+
+<!-- 管理员登录弹窗 -->
+<div class="modal-mask hidden" id="lockModal">
+  <div class="modal-box">
+    <h3 id="lockModalTitle">管理员登录</h3>
+    <p class="modal-desc">输入访问码后可进入编辑模式；访客只能查看，无法修改数据。</p>
+    <input type="password" id="adminPass" placeholder="请输入访问码" autocomplete="off">
+    <div class="modal-err" id="lockErr"></div>
+    <div class="modal-actions">
+      <button id="modalCancel" class="btn-ghost">取消</button>
+      <button id="modalOk" class="btn-solid">登录</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -350,17 +412,17 @@
       const w = ((parseInt(s.count) || 0) / maxC * 100).toFixed(1);
       return '<tr class="row-hover">' +
         '<td style="padding:8px 12px;"><input class="name-input" value="' + escapeHtml(s.name) + '" onchange="updateSchoolName(\'' + d.country + '\',' + idx + ',this.value)"></td>' +
-        '<td class="text-right" style="padding:8px 12px;width:90px;"><input type="number" min="0" class="count-input" value="' + (parseInt(s.count) || 0) + '" onchange="updateSchoolCount(\'' + d.country + '\',' + idx + ',this.value)"></td>' +
+        '<td class="text-right" style="padding:8px 12px;width:90px;"><input type="number" min="0" class="count-input edit-only" value="' + (parseInt(s.count) || 0) + '" onchange="updateSchoolCount(\'' + d.country + '\',' + idx + ',this.value)"></td>' +
         '<td style="padding:8px 12px;width:140px;"><div class="bar-track"><div class="bar-fill" style="width:' + w + '%"></div></div></td>' +
-        '<td class="text-right" style="padding:8px 12px;width:70px;"><button class="small-btn danger" onclick="removeSchool(\'' + d.country + '\',' + idx + ')">删除</button></td>' +
+        '<td class="text-right edit-only" style="padding:8px 12px;width:70px;"><button class="small-btn danger" onclick="removeSchool(\'' + d.country + '\',' + idx + ')">删除</button></td>' +
         '</tr>';
     }).join('');
 
     document.getElementById('detailBody').innerHTML =
       '<div style="overflow-x:auto;"><table><thead><tr>' +
-      '<th>录取大学</th><th class="text-right">人数</th><th>占比</th><th class="text-right">操作</th>' +
+      '<th>录取大学</th><th class="text-right">人数</th><th>占比</th><th class="text-right edit-only">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<div style="margin-top:12px;"><button class="small-btn" onclick="addSchool(\'' + d.country + '\')">+ 新增院校</button></div>';
+      '<div class="edit-only" style="margin-top:12px;"><button class="small-btn" onclick="addSchool(\'' + d.country + '\')">+ 新增院校</button></div>';
   }
 
   function renderTable() {
@@ -449,6 +511,7 @@
 
   // ----- editing helpers exposed to inline handlers -----
   window.updateSchoolCount = function(country, idx, value) {
+    if (!isAdmin()) return;
     const c = state.countries.find(x => x.country === country);
     if (!c) return;
     c.schools[idx].count = Math.max(0, parseInt(value) || 0);
@@ -468,6 +531,7 @@
     renderMap();
   };
   window.updateSchoolName = function(country, idx, value) {
+    if (!isAdmin()) return;
     const c = state.countries.find(x => x.country === country);
     if (!c) return;
     c.schools[idx].name = value.trim() || '未命名院校';
@@ -476,6 +540,7 @@
     renderTable();
   };
   window.removeSchool = function(country, idx) {
+    if (!isAdmin()) return;
     if (!confirm('确定删除这条录取记录吗？')) return;
     const c = state.countries.find(x => x.country === country);
     if (!c) return;
@@ -484,6 +549,7 @@
     renderAll();
   };
   window.addSchool = function(country) {
+    if (!isAdmin()) return;
     const c = state.countries.find(x => x.country === country);
     if (!c) return;
     c.schools.push({ name: '新录取院校', count: 1 });
@@ -491,6 +557,7 @@
     renderAll();
   };
   window.resetData = function() {
+    if (!isAdmin()) return;
     if (!confirm('确定恢复默认数据？当前修改将丢失。')) return;
     state.countries = JSON.parse(JSON.stringify(DEFAULT_COUNTRIES));
     state.selectedCountry = DEFAULT_COUNTRIES[0].country;
@@ -538,7 +605,71 @@
     }).catch(err => console.error('SW registration failed', err));
   }
 
+  // ----- 管理员/只读模式 -----
+  const ADMIN_PASS = 'tbicc';           // ← 修改访问码请改这里
+  const ADMIN_STORAGE_KEY = 'gradDestWorkbench.admin.v1';
+
+  function isAdmin() {
+    try { return localStorage.getItem(ADMIN_STORAGE_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+  function setAdmin(v) {
+    try { v ? localStorage.setItem(ADMIN_STORAGE_KEY, '1') : localStorage.removeItem(ADMIN_STORAGE_KEY); }
+    catch (e) {}
+  }
+  function applyRole() {
+    document.body.classList.toggle('readonly', !isAdmin());
+    const btn = document.getElementById('lockBtn');
+    btn.classList.toggle('locked', !isAdmin());
+    btn.classList.toggle('unlocked', isAdmin());
+    btn.textContent = isAdmin() ? '🔓 管理员' : '🔒';
+  }
+
+  const lockBtn = document.getElementById('lockBtn');
+  const lockModal = document.getElementById('lockModal');
+  const adminPass = document.getElementById('adminPass');
+  const lockErr = document.getElementById('lockErr');
+  const lockModalTitle = document.getElementById('lockModalTitle');
+
+  function openLockModal(mode) {
+    lockModalTitle.textContent = mode === 'login' ? '管理员登录' : '退出管理员';
+    lockErr.textContent = '';
+    adminPass.value = '';
+    if (mode === 'logout') {
+      setAdmin(false);
+      applyRole();
+      renderAll();
+      return;
+    }
+    lockModal.classList.remove('hidden');
+    setTimeout(() => adminPass.focus(), 50);
+  }
+  function closeLockModal() {
+    lockModal.classList.add('hidden');
+  }
+  lockBtn.addEventListener('click', () => {
+    if (isAdmin()) { openLockModal('logout'); }
+    else { openLockModal('login'); }
+  });
+  document.getElementById('modalCancel').addEventListener('click', closeLockModal);
+  function submitPass() {
+    if (adminPass.value === ADMIN_PASS) {
+      setAdmin(true);
+      applyRole();
+      closeLockModal();
+      renderAll();
+      saveState();
+    } else {
+      lockErr.textContent = '访问码错误，请重试。';
+      adminPass.value = '';
+      adminPass.focus();
+    }
+  }
+  document.getElementById('modalOk').addEventListener('click', submitPass);
+  adminPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPass(); });
+
   // init
+  applyRole();
   renderAll();
   saveState();
 </script>
