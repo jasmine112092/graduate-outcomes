@@ -1,0 +1,17 @@
+{
+  "name": "毕业生去向工作台",
+  "short_name": "毕业生去向",
+  "description": "Class of 2024-2026 海外大学升学录取数据可视化工作台",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#8B0000",
+  "theme_color": "#8B0000",
+  "orientation": "portrait-primary",
+  "scope": ".",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

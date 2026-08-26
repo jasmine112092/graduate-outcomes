@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>毕业生去向工作台</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#8B0000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script src="libs/chart.umd.js"></script>
+<style>
+  :root {
+    --red: #8B0000;
+    --red-light: #b91c1c;
+    --red-dark: #5c0000;
+    --red-pale: #fff5f5;
+    --red-border: #e5b3b3;
+    --text: #1f1f1f;
+    --muted: #6b7280;
+    --bg: #fafafa;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+                 "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app-shell { min-height: 100%; display: flex; flex-direction: column; }
+  header {
+    background: var(--red); color: #fff;
+    padding: 14px 16px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 10px rgba(139,0,0,0.25);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header img { width: 32px; height: 32px; border-radius: 8px; }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+  header .sub { font-size: 11px; opacity: 0.9; }
+  header .actions { display: flex; align-items: center; gap: 8px; }
+  header button {
+    background: #fff; color: var(--red); border: none; border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: transform .1s, opacity .1s;
+  }
+  header button:active { transform: scale(0.96); }
+  header button.hidden { display: none; }
+
+  main { flex: 1; max-width: 1600px; width: 100%; margin: 0 auto; padding: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+  .status-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 8px; font-size: 12px; color: var(--muted);
+  }
+  .saved-time { color: var(--red-light); font-weight: 500; }
+
+  .grid { display: grid; gap: 14px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 640px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+  .card {
+    background: var(--card); border: 1px solid var(--red-border);
+    border-radius: 16px; padding: 16px; box-shadow: 0 2px 8px rgba(139,0,0,0.06);
+  }
+  .stat-card { text-align: center; }
+  .stat-num { font-size: 32px; font-weight: 800; color: var(--red); }
+  @media (min-width: 640px) { .stat-num { font-size: 36px; } }
+  .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .section-title { font-size: 18px; font-weight: 700; color: var(--red); margin-bottom: 12px; }
+  .flex-between { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .legend { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+  .map-wrap { position: relative; width: 100%; aspect-ratio: 2 / 1; border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid var(--red-border); }
+  .map-wrap img { width: 100%; height: 100%; display: block; }
+  .map-marker {
+    position: absolute; transform: translate(-50%, -50%);
+    border-radius: 50%; border: 2px solid #fff;
+    background: var(--red); cursor: pointer;
+    opacity: 0.95; transition: transform .15s, opacity .15s, box-shadow .15s;
+    box-shadow: 0 2px 6px rgba(139,0,0,0.35);
+  }
+  .map-marker:hover, .map-marker.active { transform: translate(-50%, -50%) scale(1.25); opacity: 1; z-index: 20; box-shadow: 0 0 14px rgba(139,0,0,0.55); }
+  .marker-label {
+    position: absolute; bottom: 100%; left: 50%;
+    transform: translateX(-50%); white-space: nowrap;
+    font-size: 11px; color: var(--red-dark); font-weight: 700;
+    background: rgba(255,255,255,0.95); padding: 2px 6px; border-radius: 4px;
+    opacity: 0; transition: opacity .15s; pointer-events: none; margin-bottom: 5px;
+    border: 1px solid var(--red-border);
+  }
+  .map-marker:hover .marker-label, .map-marker.active .marker-label { opacity: 1; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  .grid-2 { grid-template-columns: 1fr; }
+  @media (min-width: 1024px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  .charts-box { height: 280px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar select, .toolbar input {
+    border: 1px solid var(--red-border); border-radius: 8px; padding: 7px 10px;
+    font-size: 13px; color: var(--text); background: #fff;
+  }
+  .toolbar button {
+    background: var(--red); color: #fff; border: none; border-radius: 8px;
+    padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .toolbar button.secondary { background: #fff; color: var(--red); border: 1px solid var(--red-border); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; }
+  th { color: var(--red); border-bottom: 1px solid var(--red-border); font-weight: 600; font-size: 13px; }
+  .text-right { text-align: right; }
+  .row-hover { border-bottom: 1px solid #f3e8e8; transition: background .15s; }
+  .row-hover:hover { background: var(--red-pale); }
+  .clickable { cursor: pointer; }
+  .bar-track { width: 100%; background: #f3e8e8; border-radius: 999px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 8px; border-radius: 999px; background: var(--red); }
+  .num-bold { font-weight: 700; color: var(--red); }
+  .small-btn {
+    border: 1px solid var(--red-border); background: #fff; color: var(--red);
+    border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer;
+  }
+  .small-btn.danger { color: #b91c1c; border-color: #fecaca; }
+  .row-hover.active-row { background: #fff0f0; }
+  input.count-input {
+    width: 60px; border: 1px solid var(--red-border); border-radius: 6px;
+    padding: 4px 6px; text-align: right; font-size: 14px; color: var(--text);
+  }
+  input.name-input {
+    width: 100%; border: 1px solid var(--red-border); border-radius: 6px;
+    padding: 6px 8px; font-size: 14px; color: var(--text);
+  }
+
+  .detail-empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .footer-note { text-align: center; font-size: 12px; color: var(--muted); padding: 20px 0 8px; }
+
+  @media (max-width: 480px) {
+    header h1 { font-size: 16px; }
+    header .sub { display: none; }
+    main { padding: 12px; }
+    .stat-num { font-size: 26px; }
+    .section-title { font-size: 16px; }
+    th, td { padding: 8px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header>
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="icon">
+      <div>
+        <h1>毕业生去向工作台</h1>
+        <div class="sub">Class of 2024-2026 海外升学数据</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="installBtn" class="hidden">安装到主屏幕</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stack">
+      <div class="status-bar">
+        <div>数据会自动保存到本机浏览器，关闭后再打开内容不丢。</div>
+        <div class="saved-time" id="savedTime"></div>
+      </div>
+
+      <div class="grid stat-grid">
+        <div class="card stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">总录取人次</div></div>
+        <div class="card stat-card"><div class="stat-num" id="statUnis">0</div><div class="stat-label">海外院校数</div></div>
+        <div class="card stat-card"><div class="stat-num" id="statCountries">0</div><div class="stat-label">覆盖国家/地区</div></div>
+        <div class="card stat-card"><div class="stat-num" id="statContinents">0</div><div class="stat-label">覆盖大洲</div></div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between">
+          <div class="section-title">🌍 全球录取分布地图</div>
+          <div class="legend">
+            <span><span class="legend-dot" style="background:#8B0000"></span>录取国家/地区</span>
+          </div>
+        </div>
+        <div class="map-wrap" id="worldMap"><img src="libs/world_map.svg" alt="World map"></div>
+        <p class="hint">提示：点击地图上任意国家的气泡，即可查看并编辑该国录取数据。</p>
+      </div>
+
+      <div class="card" id="detailPanel">
+        <div class="flex-between">
+          <div class="section-title" id="detailTitle">📍 国家/地区录取详情</div>
+          <div class="muted" id="detailMeta" style="font-size:13px;"></div>
+        </div>
+        <div id="detailBody"><p class="detail-empty">点击地图中的国家气泡，查看并编辑该国录取名单。</p></div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="section-title">📊 各大洲录取占比</div>
+          <div class="charts-box"><canvas id="continentChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-title">🏆 录取人数 Top 15 院校</div>
+          <div class="charts-box"><canvas id="universityChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:8px;">
+          <div class="section-title" style="margin-bottom:0;">🌏 国家/地区录取汇总</div>
+          <div class="toolbar" style="margin-bottom:0;">
+            <select id="filterContinent"><option value="All">全部大洲</option></select>
+            <select id="sortBy">
+              <option value="countDesc">录取人次 ↓</option>
+              <option value="countAsc">录取人次 ↑</option>
+              <option value="name">国家名称</option>
+            </select>
+            <button class="secondary" onclick="resetData()">恢复默认</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>大洲</th><th>国家/地区</th><th class="text-right">录取人次</th><th class="text-right">院校数量</th><th>占比</th></tr>
+            </thead>
+            <tbody id="countryTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer-note">本工作台为 PWA 应用，首次加载后可离线使用。数据仅保存在当前浏览器中。</div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const STORAGE_KEY = 'gradDestWorkbench.v1';
+  const DEFAULT_COUNTRIES = [{"country": "US", "continent": "North America", "total": 205, "universities": 47, "schools": [{"name": "State University of New York, Stony Brook", "count": 23}, {"name": "Michigan State University", "count": 17}, {"name": "University of California, Davis", "count": 17}, {"name": "Rutgers University, New Brunswick", "count": 14}, {"name": "North Carolina State University, Raleigh", "count": 13}, {"name": "University of California, Irvine", "count": 11}, {"name": "Ohio State University, Columbus", "count": 9}, {"name": "Northeastern University", "count": 8}, {"name": "University of California, Santa Barbara", "count": 8}, {"name": "Penn State University, University Park", "count": 7}, {"name": "University of California, Merced", "count": 7}, {"name": "University of California, Riverside", "count": 7}, {"name": "Penn State University, Harrisburg", "count": 6}, {"name": "Rutgers University, Camden", "count": 5}, {"name": "Arizona State University", "count": 4}, {"name": "Rutgers University, Newark", "count": 4}, {"name": "State University of New York, Binghampton", "count": 4}, {"name": "The University of Arizona", "count": 3}, {"name": "University of California, Santa Cruz", "count": 3}, {"name": "State University of New York, Buffalo", "count": 2}, {"name": "Syracuse University", "count": 2}, {"name": "University of Illinois Urbana-Champaign", "count": 2}, {"name": "University of Maryland, College Park", "count": 2}, {"name": "University of Minnesota, Twin Cities", "count": 2}, {"name": "University of Richmond", "count": 2}, {"name": "Virginia Tech", "count": 2}, {"name": "Boston College", "count": 1}, {"name": "Bryant University", "count": 1}, {"name": "California College of the Arts", "count": 1}, {"name": "Illinois Institute of Technology", "count": 1}, {"name": "Illinois Wesleyan University", "count": 1}, {"name": "Kent State University", "count": 1}, {"name": "Maryland Institute of Creative Arts", "count": 1}, {"name": "Miami University, Oxford", "count": 1}, {"name": "Pratt Institute", "count": 1}, {"name": "Rose-Hulman Institute of Technology", "count": 1}, {"name": "Savannah College of Art and Design", "count": 1}, {"name": "School of the Art Institute of Chicago", "count": 1}, {"name": "Seton Hall University", "count": 1}, {"name": "Temple University", "count": 1}, {"name": "The New School, Parsons School of Design", "count": 1}, {"name": "University of Connecticut", "count": 1}, {"name": "University of Delaware", "count": 1}, {"name": "University of Kansas", "count": 1}, {"name": "University of Rochester", "count": 1}, {"name": "University of Wisconsin, Madison", "count": 1}, {"name": "Whitman College", "count": 1}], "lat": 37.09, "lon": -95.71}, {"country": "UK", "continent": "Europe", "total": 168, "universities": 31, "schools": [{"name": "University of Manchester", "count": 38}, {"name": "University College London", "count": 23}, {"name": "University of Edinburgh", "count": 14}, {"name": "University of Warwick", "count": 12}, {"name": "University of Southampton", "count": 11}, {"name": "University of the Arts London", "count": 9}, {"name": "University of Bristol", "count": 8}, {"name": "University of Leeds", "count": 7}, {"name": "King's College London", "count": 6}, {"name": "The University of Sheffield", "count": 5}, {"name": "Durham University", "count": 4}, {"name": "Goldsmith, University of London", "count": 3}, {"name": "Kingston University", "count": 3}, {"name": "University of Birmingham", "count": 3}, {"name": "University of Glasgow", "count": 3}, {"name": "Keele University", "count": 2}, {"name": "University of Reading", "count": 2}, {"name": "University of Surrey", "count": 2}, {"name": "Arts University Bournemouth", "count": 1}, {"name": "Birmingham City University", "count": 1}, {"name": "City, University of London", "count": 1}, {"name": "Imperial College London", "count": 1}, {"name": "The Glasgow School of Art", "count": 1}, {"name": "University of Bath", "count": 1}, {"name": "University of Brighton", "count": 1}, {"name": "University of Kent", "count": 1}, {"name": "University of Liverpool", "count": 1}, {"name": "University of Loughborough", "count": 1}, {"name": "University of Nottingham", "count": 1}, {"name": "University of St. Andrews", "count": 1}, {"name": "University of Strathclyde", "count": 1}], "lat": 55.37, "lon": -3.43}, {"country": "Australia", "continent": "Oceania", "total": 127, "universities": 12, "schools": [{"name": "University of Melbourne", "count": 43}, {"name": "The University of Sydney", "count": 30}, {"name": "Monash University", "count": 16}, {"name": "The University of New South Wales", "count": 12}, {"name": "University of Technology Sydney", "count": 6}, {"name": "The University of Queensland", "count": 5}, {"name": "University of Western Sydney", "count": 5}, {"name": "The University of Adelaide", "count": 3}, {"name": "The University of Western Australia", "count": 3}, {"name": "Royal Melbourne Institute of Technology", "count": 2}, {"name": "Deakin University", "count": 1}, {"name": "The Australian National University", "count": 1}], "lat": -25.27, "lon": 133.77}, {"country": "Canada", "continent": "North America", "total": 47, "universities": 12, "schools": [{"name": "University of Toronto", "count": 16}, {"name": "Western University", "count": 8}, {"name": "University of Waterloo", "count": 6}, {"name": "York University", "count": 5}, {"name": "Wilfrid Laurier University", "count": 3}, {"name": "Simon Fraser University", "count": 2}, {"name": "University of Ottawa", "count": 2}, {"name": "HEC Montréal", "count": 1}, {"name": "McMaster University", "count": 1}, {"name": "University of Alberta", "count": 1}, {"name": "University of Calgary", "count": 1}, {"name": "University of Windsor", "count": 1}], "lat": 56.13, "lon": -106.34}, {"country": "China", "continent": "Asia", "total": 25, "universities": 11, "schools": [{"name": "Vancouver Film School, Shanghai", "count": 7}, {"name": "The Hong Kong Polytechnic University", "count": 4}, {"name": "Lingnan University", "count": 3}, {"name": "The University of Hong Kong", "count": 3}, {"name": "City University of Hongkong", "count": 2}, {"name": "HKU SPACE Po Leung Kuk Stanley Ho Community College", "count": 1}, {"name": "Hong Kong Baptist University", "count": 1}, {"name": "Macau University of Science and Technology", "count": 1}, {"name": "The Hong Kong University of Science and Technology", "count": 1}, {"name": "University of Macau", "count": 1}, {"name": "Zhejiang University, 2+2", "count": 1}], "lat": 35.86, "lon": 104.19}, {"country": "Switzerland", "continent": "Europe", "total": 21, "universities": 5, "schools": [{"name": "Gilon Hotel Management School", "count": 8}, {"name": "Swiss Hotel Management School", "count": 6}, {"name": "Ecole Hôtelière de Lausanne, Passuage", "count": 3}, {"name": "Les Roches International School of Hotel Management", "count": 3}, {"name": "Ecole Hôtelière de Lausanne", "count": 1}], "lat": 46.81, "lon": 8.22}, {"country": "New Zealand", "continent": "Oceania", "total": 10, "universities": 2, "schools": [{"name": "University of Auckland", "count": 9}, {"name": "Auckland University of Technology", "count": 1}], "lat": -40.9, "lon": 174.88}, {"country": "Singapore", "continent": "Asia", "total": 5, "universities": 4, "schools": [{"name": "Singapore Institute of Management", "count": 2}, {"name": "Nanyang Technological University", "count": 1}, {"name": "National University, Singapore", "count": 1}, {"name": "Shelton College International", "count": 1}], "lat": 1.35, "lon": 103.81}, {"country": "Malaysia", "continent": "Asia", "total": 4, "universities": 3, "schools": [{"name": "The National University of Malaysia", "count": 2}, {"name": "Asia Pacific University of Technology & Innovation", "count": 1}, {"name": "University of Wollongong, Sarawak campus, Malaysia", "count": 1}], "lat": 4.21, "lon": 101.97}, {"country": "UAE", "continent": "Asia", "total": 2, "universities": 2, "schools": [{"name": "Sorbonne University, Abu Dhabi", "count": 1}, {"name": "University of Birmingham, Dubai", "count": 1}], "lat": 23.42, "lon": 53.84}, {"country": "Ireland", "continent": "Europe", "total": 2, "universities": 1, "schools": [{"name": "University College Dublin", "count": 2}], "lat": 53.41, "lon": -8.24}, {"country": "Austria", "continent": "Europe", "total": 2, "universities": 1, "schools": [{"name": "MODUL University Vienna", "count": 2}], "lat": 47.51, "lon": 14.55}, {"country": "France", "continent": "Europe", "total": 2, "universities": 2, "schools": [{"name": "ESSEC Business School", "count": 1}, {"name": "NEOMA Business School", "count": 1}], "lat": 46.22, "lon": 2.21}, {"country": "Netherlands", "continent": "Europe", "total": 1, "universities": 1, "schools": [{"name": "University of Amsterdam", "count": 1}], "lat": 52.13, "lon": 5.29}];
+
+  let state = loadState();
+  let charts = {};
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.countries)) return parsed;
+      }
+    } catch (e) { console.error(e); }
+    return {
+      countries: JSON.parse(JSON.stringify(DEFAULT_COUNTRIES)),
+      selectedCountry: DEFAULT_COUNTRIES[0].country,
+      filterContinent: 'All',
+      sortBy: 'countDesc',
+      lastSaved: null
+    };
+  }
+
+  function saveState() {
+    state.lastSaved = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const t = new Date(state.lastSaved);
+    document.getElementById('savedTime').textContent =
+      '已自动保存 ' + t.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function recompute() {
+    state.countries.forEach(c => {
+      c.total = c.schools.reduce((s, x) => s + (parseInt(x.count) || 0), 0);
+      c.universities = c.schools.length;
+    });
+  }
+
+  function getVisibleCountries() {
+    let list = state.countries.slice();
+    if (state.filterContinent !== 'All') {
+      list = list.filter(c => c.continent === state.filterContinent);
+    }
+    if (state.sortBy === 'countDesc') list.sort((a, b) => b.total - a.total);
+    else if (state.sortBy === 'countAsc') list.sort((a, b) => a.total - b.total);
+    else if (state.sortBy === 'name') list.sort((a, b) => a.country.localeCompare(b.country, 'zh-CN'));
+    return list;
+  }
+
+  function getContinentData() {
+    const map = {};
+    state.countries.forEach(c => {
+      if (!map[c.continent]) map[c.continent] = 0;
+      map[c.continent] += c.total;
+    });
+    return Object.keys(map).map(k => ({ continent: k, total: map[k] })).sort((a, b) => b.total - a.total);
+  }
+
+  function getTopUniversities() {
+    const all = [];
+    state.countries.forEach(c => {
+      c.schools.forEach(s => all.push({ name: s.name, count: parseInt(s.count) || 0, country: c.country, continent: c.continent }));
+    });
+    return all.sort((a, b) => b.count - a.count).slice(0, 15);
+  }
+
+  function getSummary() {
+    return {
+      total: state.countries.reduce((s, c) => s + c.total, 0),
+      universities: state.countries.reduce((s, c) => s + c.universities, 0),
+      countries: state.countries.length,
+      continents: new Set(state.countries.map(c => c.continent)).size
+    };
+  }
+
+  function renderMap() {
+    const wrap = document.getElementById('worldMap');
+    // remove old markers
+    wrap.querySelectorAll('.map-marker').forEach(el => el.remove());
+    state.countries.forEach(d => {
+      if (d.total <= 0) return;
+      const left = ((d.lon + 180) / 360 * 100).toFixed(2);
+      const top = ((90 - d.lat) / 180 * 100).toFixed(2);
+      const size = Math.round(Math.sqrt(d.total) * 4 + 8);
+      const el = document.createElement('div');
+      el.className = 'map-marker' + (d.country === state.selectedCountry ? ' active' : '');
+      el.style.left = left + '%';
+      el.style.top = top + '%';
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.innerHTML = '<span class="marker-label">' + d.country + ' (' + d.total + ')</span>';
+      el.title = d.country + '：' + d.total + ' 录取 / ' + d.universities + ' 所院校';
+      el.addEventListener('click', function(e) { e.stopPropagation(); state.selectedCountry = d.country; saveState(); renderAll(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  function renderDetail() {
+    const d = state.countries.find(c => c.country === state.selectedCountry);
+    if (!d) {
+      document.getElementById('detailTitle').innerHTML = '📍 国家/地区录取详情';
+      document.getElementById('detailMeta').innerHTML = '';
+      document.getElementById('detailBody').innerHTML = '<p class="detail-empty">点击地图中的国家气泡，查看并编辑该国录取名单。</p>';
+      return;
+    }
+    document.getElementById('detailTitle').innerHTML = '📍 <span style="color:#8B0000;font-weight:800;">' + d.country + '</span> · 录取详情';
+    document.getElementById('detailMeta').innerHTML = d.continent + ' · 共 <b style="color:#8B0000;">' + d.total + '</b> 人次 / <b style="color:#8B0000;">' + d.universities + '</b> 所院校';
+
+    const maxC = Math.max(1, ...d.schools.map(s => parseInt(s.count) || 0));
+    const rows = d.schools.map((s, idx) => {
+      const w = ((parseInt(s.count) || 0) / maxC * 100).toFixed(1);
+      return '<tr class="row-hover">' +
+        '<td style="padding:8px 12px;"><input class="name-input" value="' + escapeHtml(s.name) + '" onchange="updateSchoolName(\'' + d.country + '\',' + idx + ',this.value)"></td>' +
+        '<td class="text-right" style="padding:8px 12px;width:90px;"><input type="number" min="0" class="count-input" value="' + (parseInt(s.count) || 0) + '" onchange="updateSchoolCount(\'' + d.country + '\',' + idx + ',this.value)"></td>' +
+        '<td style="padding:8px 12px;width:140px;"><div class="bar-track"><div class="bar-fill" style="width:' + w + '%"></div></div></td>' +
+        '<td class="text-right" style="padding:8px 12px;width:70px;"><button class="small-btn danger" onclick="removeSchool(\'' + d.country + '\',' + idx + ')">删除</button></td>' +
+        '</tr>';
+    }).join('');
+
+    document.getElementById('detailBody').innerHTML =
+      '<div style="overflow-x:auto;"><table><thead><tr>' +
+      '<th>录取大学</th><th class="text-right">人数</th><th>占比</th><th class="text-right">操作</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div style="margin-top:12px;"><button class="small-btn" onclick="addSchool(\'' + d.country + '\')">+ 新增院校</button></div>';
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('countryTableBody');
+    tbody.innerHTML = '';
+    const visible = getVisibleCountries();
+    const summary = getSummary();
+    visible.forEach(d => {
+      const pct = summary.total ? (d.total / summary.total * 100).toFixed(1) : '0.0';
+      const tr = document.createElement('tr');
+      tr.className = 'row-hover clickable' + (d.country === state.selectedCountry ? ' active-row' : '');
+      tr.innerHTML =
+        '<td class="py-3 px-4" style="color:#8B0000;font-weight:600;">' + d.continent + '</td>' +
+        '<td class="py-3 px-4">' + d.country + '</td>' +
+        '<td class="py-3 px-4 text-right num-bold">' + d.total + '</td>' +
+        '<td class="py-3 px-4 text-right">' + d.universities + '</td>' +
+        '<td class="py-3 px-4"><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div><div class="muted" style="font-size:11px;text-align:right;margin-top:2px;">' + pct + '%</div></td>';
+      tr.addEventListener('click', () => { state.selectedCountry = d.country; saveState(); renderAll(); });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderStats() {
+    const s = getSummary();
+    document.getElementById('statTotal').textContent = s.total;
+    document.getElementById('statUnis').textContent = s.universities;
+    document.getElementById('statCountries').textContent = s.countries;
+    document.getElementById('statContinents').textContent = s.continents;
+  }
+
+  function renderCharts() {
+    const continentData = getContinentData();
+    const topUniversities = getTopUniversities();
+    const summary = getSummary();
+    const color = '#8B0000';
+    const colors = ['#8B0000', '#b91c1c', '#c24141', '#d97777'];
+
+    if (charts.continent) charts.continent.destroy();
+    charts.continent = new Chart(document.getElementById('continentChart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: continentData.map(d => d.continent),
+        datasets: [{ data: continentData.map(d => d.total),
+          backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { color: '#4b5563', font: { size: 12 } } },
+          tooltip: { callbacks: { label: function(ctx) {
+            const v = ctx.raw, pct = summary.total ? (v / summary.total * 100).toFixed(1) : 0;
+            return ctx.label + ': ' + v + ' (' + pct + '%)'; } } } } }
+    });
+
+    if (charts.university) charts.university.destroy();
+    charts.university = new Chart(document.getElementById('universityChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels: topUniversities.map(d => d.name),
+        datasets: [{ label: '录取人数', data: topUniversities.map(d => d.count),
+          backgroundColor: color, borderRadius: 4 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { afterLabel: function(ctx) { return topUniversities[ctx.dataIndex].country; } } } },
+        scales: { x: { grid: { color: '#f3e8e8' }, ticks: { color: '#6b7280' } },
+          y: { grid: { display: false }, ticks: { color: '#374151', font: { size: 11 } } } } }
+    });
+  }
+
+  function renderFilters() {
+    const sel = document.getElementById('filterContinent');
+    const current = sel.value;
+    const continents = Array.from(new Set(state.countries.map(c => c.continent))).sort();
+    sel.innerHTML = '<option value="All">全部大洲</option>' +
+      continents.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    sel.value = state.filterContinent;
+    document.getElementById('sortBy').value = state.sortBy;
+  }
+
+  function renderAll() {
+    recompute();
+    renderStats();
+    renderMap();
+    renderDetail();
+    renderCharts();
+    renderTable();
+    renderFilters();
+  }
+
+  // ----- editing helpers exposed to inline handlers -----
+  window.updateSchoolCount = function(country, idx, value) {
+    const c = state.countries.find(x => x.country === country);
+    if (!c) return;
+    c.schools[idx].count = Math.max(0, parseInt(value) || 0);
+    recompute();
+    saveState();
+    renderStats();
+    renderCharts();
+    renderTable();
+    // Update detail panel in place without rebuilding (keeps focus)
+    const d = state.countries.find(x => x.country === country);
+    document.getElementById('detailMeta').innerHTML =
+      d.continent + ' · 共 <b style="color:#8B0000;">' + d.total + '</b> 人次 / <b style="color:#8B0000;">' + d.universities + '</b> 所院校';
+    const maxC = Math.max(1, ...d.schools.map(s => parseInt(s.count) || 0));
+    document.querySelectorAll('#detailBody .bar-fill').forEach((bar, i) => {
+      if (d.schools[i]) bar.style.width = (((parseInt(d.schools[i].count) || 0) / maxC) * 100).toFixed(1) + '%';
+    });
+    renderMap();
+  };
+  window.updateSchoolName = function(country, idx, value) {
+    const c = state.countries.find(x => x.country === country);
+    if (!c) return;
+    c.schools[idx].name = value.trim() || '未命名院校';
+    saveState();
+    renderCharts();
+    renderTable();
+  };
+  window.removeSchool = function(country, idx) {
+    if (!confirm('确定删除这条录取记录吗？')) return;
+    const c = state.countries.find(x => x.country === country);
+    if (!c) return;
+    c.schools.splice(idx, 1);
+    saveState();
+    renderAll();
+  };
+  window.addSchool = function(country) {
+    const c = state.countries.find(x => x.country === country);
+    if (!c) return;
+    c.schools.push({ name: '新录取院校', count: 1 });
+    saveState();
+    renderAll();
+  };
+  window.resetData = function() {
+    if (!confirm('确定恢复默认数据？当前修改将丢失。')) return;
+    state.countries = JSON.parse(JSON.stringify(DEFAULT_COUNTRIES));
+    state.selectedCountry = DEFAULT_COUNTRIES[0].country;
+    saveState();
+    renderAll();
+  };
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ----- event bindings -----
+  document.getElementById('filterContinent').addEventListener('change', (e) => {
+    state.filterContinent = e.target.value;
+    saveState();
+    renderTable();
+  });
+  document.getElementById('sortBy').addEventListener('change', (e) => {
+    state.sortBy = e.target.value;
+    saveState();
+    renderTable();
+  });
+
+  // ----- PWA install -----
+  let deferredPrompt;
+  const installBtn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.classList.remove('hidden');
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') installBtn.classList.add('hidden');
+    deferredPrompt = null;
+  });
+  window.addEventListener('appinstalled', () => { installBtn.classList.add('hidden'); deferredPrompt = null; });
+
+  // ----- Service Worker registration -----
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      console.log('SW registered');
+    }).catch(err => console.error('SW registration failed', err));
+  }
+
+  // init
+  renderAll();
+  saveState();
+</script>
+</body>
+</html>
