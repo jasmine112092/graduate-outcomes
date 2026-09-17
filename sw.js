@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grad-dest-workbench-v3';
+const CACHE_NAME = 'grad-dest-workbench-v4';
 const ASSETS = [
   './',
   './index.html',

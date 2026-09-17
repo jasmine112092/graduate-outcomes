@@ -191,6 +191,27 @@
   }
   body:not(.readonly) .badge-admin { display: inline-block; }
 
+  /* ---- 添加录取记录表单 ---- */
+  .add-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 4px; }
+  .add-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; }
+  .add-field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .add-field input {
+    border: 1px solid var(--red-border); border-radius: 8px; padding: 9px 11px;
+    font-size: 14px; color: var(--text); width: 100%; outline: none;
+  }
+  .add-field input:focus { border-color: var(--red); box-shadow: 0 0 0 2px rgba(139,0,0,0.12); }
+  .add-field-num { flex: 0 0 110px; }
+  .add-field-btn { flex: 0 0 auto; }
+  .add-field-btn button { padding: 10px 22px; height: 40px; }
+  .add-msg { font-size: 13px; margin-top: 10px; min-height: 20px; }
+  .add-msg.ok { color: #15803d; }
+  .add-msg.err { color: #dc2626; }
+  @media (max-width: 560px) {
+    .add-field { flex: 1 1 100%; }
+    .add-field-num, .add-field-btn { flex: 1 1 100%; }
+    .add-field-btn button { width: 100%; }
+  }
+
 </style>
 </head>
 <body>
@@ -235,6 +256,32 @@
         </div>
         <div class="map-wrap" id="worldMap"><img src="libs/world_map.svg" alt="World map"></div>
         <p class="hint">提示：点击地图上任意国家的气泡，即可查看并编辑该国录取数据。</p>
+      </div>
+
+      <div class="card edit-only" id="addPanel">
+        <div class="flex-between">
+          <div class="section-title">➕ 添加新录取记录</div>
+          <div class="muted" style="font-size:12px;">填写后自动统计到地图与顶部数据</div>
+        </div>
+        <form id="addForm" class="add-form" autocomplete="off">
+          <div class="add-field">
+            <label>大学名称</label>
+            <input type="text" id="newUniName" placeholder="如：University of Melbourne" required>
+          </div>
+          <div class="add-field">
+            <label>国家/地区</label>
+            <input type="text" id="newCountry" list="countryOptions" placeholder="输入中文或英文，如 美国 / US" required>
+            <datalist id="countryOptions"></datalist>
+          </div>
+          <div class="add-field add-field-num">
+            <label>录取数量</label>
+            <input type="number" id="newCount" min="1" step="1" value="1" required>
+          </div>
+          <div class="add-field add-field-btn">
+            <button type="submit" class="btn-solid">添加</button>
+          </div>
+        </form>
+        <div id="addMsg" class="add-msg"></div>
       </div>
 
       <div class="card" id="detailPanel">
@@ -301,6 +348,109 @@
 <script>
   const STORAGE_KEY = 'gradDestWorkbench.v1';
   const DEFAULT_COUNTRIES = [{"country": "US", "continent": "North America", "total": 205, "universities": 47, "schools": [{"name": "State University of New York, Stony Brook", "count": 23}, {"name": "Michigan State University", "count": 17}, {"name": "University of California, Davis", "count": 17}, {"name": "Rutgers University, New Brunswick", "count": 14}, {"name": "North Carolina State University, Raleigh", "count": 13}, {"name": "University of California, Irvine", "count": 11}, {"name": "Ohio State University, Columbus", "count": 9}, {"name": "Northeastern University", "count": 8}, {"name": "University of California, Santa Barbara", "count": 8}, {"name": "Penn State University, University Park", "count": 7}, {"name": "University of California, Merced", "count": 7}, {"name": "University of California, Riverside", "count": 7}, {"name": "Penn State University, Harrisburg", "count": 6}, {"name": "Rutgers University, Camden", "count": 5}, {"name": "Arizona State University", "count": 4}, {"name": "Rutgers University, Newark", "count": 4}, {"name": "State University of New York, Binghampton", "count": 4}, {"name": "The University of Arizona", "count": 3}, {"name": "University of California, Santa Cruz", "count": 3}, {"name": "State University of New York, Buffalo", "count": 2}, {"name": "Syracuse University", "count": 2}, {"name": "University of Illinois Urbana-Champaign", "count": 2}, {"name": "University of Maryland, College Park", "count": 2}, {"name": "University of Minnesota, Twin Cities", "count": 2}, {"name": "University of Richmond", "count": 2}, {"name": "Virginia Tech", "count": 2}, {"name": "Boston College", "count": 1}, {"name": "Bryant University", "count": 1}, {"name": "California College of the Arts", "count": 1}, {"name": "Illinois Institute of Technology", "count": 1}, {"name": "Illinois Wesleyan University", "count": 1}, {"name": "Kent State University", "count": 1}, {"name": "Maryland Institute of Creative Arts", "count": 1}, {"name": "Miami University, Oxford", "count": 1}, {"name": "Pratt Institute", "count": 1}, {"name": "Rose-Hulman Institute of Technology", "count": 1}, {"name": "Savannah College of Art and Design", "count": 1}, {"name": "School of the Art Institute of Chicago", "count": 1}, {"name": "Seton Hall University", "count": 1}, {"name": "Temple University", "count": 1}, {"name": "The New School, Parsons School of Design", "count": 1}, {"name": "University of Connecticut", "count": 1}, {"name": "University of Delaware", "count": 1}, {"name": "University of Kansas", "count": 1}, {"name": "University of Rochester", "count": 1}, {"name": "University of Wisconsin, Madison", "count": 1}, {"name": "Whitman College", "count": 1}], "lat": 37.09, "lon": -95.71}, {"country": "UK", "continent": "Europe", "total": 168, "universities": 31, "schools": [{"name": "University of Manchester", "count": 38}, {"name": "University College London", "count": 23}, {"name": "University of Edinburgh", "count": 14}, {"name": "University of Warwick", "count": 12}, {"name": "University of Southampton", "count": 11}, {"name": "University of the Arts London", "count": 9}, {"name": "University of Bristol", "count": 8}, {"name": "University of Leeds", "count": 7}, {"name": "King's College London", "count": 6}, {"name": "The University of Sheffield", "count": 5}, {"name": "Durham University", "count": 4}, {"name": "Goldsmith, University of London", "count": 3}, {"name": "Kingston University", "count": 3}, {"name": "University of Birmingham", "count": 3}, {"name": "University of Glasgow", "count": 3}, {"name": "Keele University", "count": 2}, {"name": "University of Reading", "count": 2}, {"name": "University of Surrey", "count": 2}, {"name": "Arts University Bournemouth", "count": 1}, {"name": "Birmingham City University", "count": 1}, {"name": "City, University of London", "count": 1}, {"name": "Imperial College London", "count": 1}, {"name": "The Glasgow School of Art", "count": 1}, {"name": "University of Bath", "count": 1}, {"name": "University of Brighton", "count": 1}, {"name": "University of Kent", "count": 1}, {"name": "University of Liverpool", "count": 1}, {"name": "University of Loughborough", "count": 1}, {"name": "University of Nottingham", "count": 1}, {"name": "University of St. Andrews", "count": 1}, {"name": "University of Strathclyde", "count": 1}], "lat": 55.37, "lon": -3.43}, {"country": "Australia", "continent": "Oceania", "total": 127, "universities": 12, "schools": [{"name": "University of Melbourne", "count": 43}, {"name": "The University of Sydney", "count": 30}, {"name": "Monash University", "count": 16}, {"name": "The University of New South Wales", "count": 12}, {"name": "University of Technology Sydney", "count": 6}, {"name": "The University of Queensland", "count": 5}, {"name": "University of Western Sydney", "count": 5}, {"name": "The University of Adelaide", "count": 3}, {"name": "The University of Western Australia", "count": 3}, {"name": "Royal Melbourne Institute of Technology", "count": 2}, {"name": "Deakin University", "count": 1}, {"name": "The Australian National University", "count": 1}], "lat": -25.27, "lon": 133.77}, {"country": "Canada", "continent": "North America", "total": 47, "universities": 12, "schools": [{"name": "University of Toronto", "count": 16}, {"name": "Western University", "count": 8}, {"name": "University of Waterloo", "count": 6}, {"name": "York University", "count": 5}, {"name": "Wilfrid Laurier University", "count": 3}, {"name": "Simon Fraser University", "count": 2}, {"name": "University of Ottawa", "count": 2}, {"name": "HEC Montréal", "count": 1}, {"name": "McMaster University", "count": 1}, {"name": "University of Alberta", "count": 1}, {"name": "University of Calgary", "count": 1}, {"name": "University of Windsor", "count": 1}], "lat": 56.13, "lon": -106.34}, {"country": "China", "continent": "Asia", "total": 25, "universities": 11, "schools": [{"name": "Vancouver Film School, Shanghai", "count": 7}, {"name": "The Hong Kong Polytechnic University", "count": 4}, {"name": "Lingnan University", "count": 3}, {"name": "The University of Hong Kong", "count": 3}, {"name": "City University of Hongkong", "count": 2}, {"name": "HKU SPACE Po Leung Kuk Stanley Ho Community College", "count": 1}, {"name": "Hong Kong Baptist University", "count": 1}, {"name": "Macau University of Science and Technology", "count": 1}, {"name": "The Hong Kong University of Science and Technology", "count": 1}, {"name": "University of Macau", "count": 1}, {"name": "Zhejiang University, 2+2", "count": 1}], "lat": 35.86, "lon": 104.19}, {"country": "Switzerland", "continent": "Europe", "total": 21, "universities": 5, "schools": [{"name": "Gilon Hotel Management School", "count": 8}, {"name": "Swiss Hotel Management School", "count": 6}, {"name": "Ecole Hôtelière de Lausanne, Passuage", "count": 3}, {"name": "Les Roches International School of Hotel Management", "count": 3}, {"name": "Ecole Hôtelière de Lausanne", "count": 1}], "lat": 46.81, "lon": 8.22}, {"country": "New Zealand", "continent": "Oceania", "total": 10, "universities": 2, "schools": [{"name": "University of Auckland", "count": 9}, {"name": "Auckland University of Technology", "count": 1}], "lat": -40.9, "lon": 174.88}, {"country": "Singapore", "continent": "Asia", "total": 5, "universities": 4, "schools": [{"name": "Singapore Institute of Management", "count": 2}, {"name": "Nanyang Technological University", "count": 1}, {"name": "National University, Singapore", "count": 1}, {"name": "Shelton College International", "count": 1}], "lat": 1.35, "lon": 103.81}, {"country": "Malaysia", "continent": "Asia", "total": 4, "universities": 3, "schools": [{"name": "The National University of Malaysia", "count": 2}, {"name": "Asia Pacific University of Technology & Innovation", "count": 1}, {"name": "University of Wollongong, Sarawak campus, Malaysia", "count": 1}], "lat": 4.21, "lon": 101.97}, {"country": "UAE", "continent": "Asia", "total": 2, "universities": 2, "schools": [{"name": "Sorbonne University, Abu Dhabi", "count": 1}, {"name": "University of Birmingham, Dubai", "count": 1}], "lat": 23.42, "lon": 53.84}, {"country": "Ireland", "continent": "Europe", "total": 2, "universities": 1, "schools": [{"name": "University College Dublin", "count": 2}], "lat": 53.41, "lon": -8.24}, {"country": "Austria", "continent": "Europe", "total": 2, "universities": 1, "schools": [{"name": "MODUL University Vienna", "count": 2}], "lat": 47.51, "lon": 14.55}, {"country": "France", "continent": "Europe", "total": 2, "universities": 2, "schools": [{"name": "ESSEC Business School", "count": 1}, {"name": "NEOMA Business School", "count": 1}], "lat": 46.22, "lon": 2.21}, {"country": "Netherlands", "continent": "Europe", "total": 1, "universities": 1, "schools": [{"name": "University of Amsterdam", "count": 1}], "lat": 52.13, "lon": 5.29}];
+
+  // 国家/地区坐标库：c=代码 z=中文名 k=大洲 la=纬度 lo=经度
+  const COUNTRY_DB = [
+    {c:'US',z:'美国',k:'North America',la:37.09,lo:-95.71},
+    {c:'UK',z:'英国',k:'Europe',la:55.37,lo:-3.43},
+    {c:'Australia',z:'澳大利亚',k:'Oceania',la:-25.27,lo:133.77},
+    {c:'Canada',z:'加拿大',k:'North America',la:56.13,lo:-106.34},
+    {c:'China',z:'中国',k:'Asia',la:35.86,lo:104.19},
+    {c:'New Zealand',z:'新西兰',k:'Oceania',la:-40.90,lo:174.88},
+    {c:'Singapore',z:'新加坡',k:'Asia',la:1.35,lo:103.81},
+    {c:'Malaysia',z:'马来西亚',k:'Asia',la:4.21,lo:101.97},
+    {c:'UAE',z:'阿联酋',k:'Asia',la:23.42,lo:53.84},
+    {c:'Ireland',z:'爱尔兰',k:'Europe',la:53.41,lo:-8.24},
+    {c:'Austria',z:'奥地利',k:'Europe',la:47.51,lo:14.55},
+    {c:'France',z:'法国',k:'Europe',la:46.22,lo:2.21},
+    {c:'Switzerland',z:'瑞士',k:'Europe',la:46.81,lo:8.22},
+    {c:'Netherlands',z:'荷兰',k:'Europe',la:52.13,lo:5.29},
+    {c:'Japan',z:'日本',k:'Asia',la:36.20,lo:138.25},
+    {c:'South Korea',z:'韩国',k:'Asia',la:36.50,lo:127.90},
+    {c:'Germany',z:'德国',k:'Europe',la:51.17,lo:10.45},
+    {c:'Italy',z:'意大利',k:'Europe',la:41.87,lo:12.57},
+    {c:'Spain',z:'西班牙',k:'Europe',la:40.46,lo:-3.75},
+    {c:'Portugal',z:'葡萄牙',k:'Europe',la:39.40,lo:-8.22},
+    {c:'Sweden',z:'瑞典',k:'Europe',la:60.13,lo:18.64},
+    {c:'Norway',z:'挪威',k:'Europe',la:60.47,lo:8.47},
+    {c:'Denmark',z:'丹麦',k:'Europe',la:56.26,lo:9.50},
+    {c:'Finland',z:'芬兰',k:'Europe',la:61.92,lo:25.75},
+    {c:'Belgium',z:'比利时',k:'Europe',la:50.50,lo:4.47},
+    {c:'Poland',z:'波兰',k:'Europe',la:51.92,lo:19.15},
+    {c:'Czechia',z:'捷克',k:'Europe',la:49.82,lo:15.47},
+    {c:'Hungary',z:'匈牙利',k:'Europe',la:47.16,lo:19.50},
+    {c:'Greece',z:'希腊',k:'Europe',la:39.07,lo:21.82},
+    {c:'Romania',z:'罗马尼亚',k:'Europe',la:45.94,lo:24.97},
+    {c:'Russia',z:'俄罗斯',k:'Europe',la:61.52,lo:105.32},
+    {c:'Ukraine',z:'乌克兰',k:'Europe',la:48.38,lo:31.17},
+    {c:'Croatia',z:'克罗地亚',k:'Europe',la:45.10,lo:15.20},
+    {c:'Slovenia',z:'斯洛文尼亚',k:'Europe',la:46.15,lo:14.99},
+    {c:'Slovakia',z:'斯洛伐克',k:'Europe',la:48.67,lo:19.70},
+    {c:'Bulgaria',z:'保加利亚',k:'Europe',la:42.73,lo:25.49},
+    {c:'Serbia',z:'塞尔维亚',k:'Europe',la:44.02,lo:21.01},
+    {c:'Estonia',z:'爱沙尼亚',k:'Europe',la:58.60,lo:25.01},
+    {c:'Latvia',z:'拉脱维亚',k:'Europe',la:56.88,lo:24.60},
+    {c:'Lithuania',z:'立陶宛',k:'Europe',la:55.17,lo:23.88},
+    {c:'Luxembourg',z:'卢森堡',k:'Europe',la:49.82,lo:6.13},
+    {c:'Iceland',z:'冰岛',k:'Europe',la:64.96,lo:-19.02},
+    {c:'Malta',z:'马耳他',k:'Europe',la:35.94,lo:14.38},
+    {c:'Cyprus',z:'塞浦路斯',k:'Europe',la:35.13,lo:33.43},
+    {c:'Thailand',z:'泰国',k:'Asia',la:15.87,lo:100.99},
+    {c:'Vietnam',z:'越南',k:'Asia',la:16.05,lo:105.83},
+    {c:'Indonesia',z:'印度尼西亚',k:'Asia',la:-2.55,lo:118.01},
+    {c:'Philippines',z:'菲律宾',k:'Asia',la:12.88,lo:121.77},
+    {c:'India',z:'印度',k:'Asia',la:20.59,lo:78.96},
+    {c:'Qatar',z:'卡塔尔',k:'Asia',la:25.35,lo:51.18},
+    {c:'Saudi Arabia',z:'沙特阿拉伯',k:'Asia',la:23.89,lo:45.08},
+    {c:'Israel',z:'以色列',k:'Asia',la:31.05,lo:34.85},
+    {c:'Turkey',z:'土耳其',k:'Asia',la:38.96,lo:35.24},
+    {c:'Kazakhstan',z:'哈萨克斯坦',k:'Asia',la:48.02,lo:66.92},
+    {c:'Pakistan',z:'巴基斯坦',k:'Asia',la:30.38,lo:69.35},
+    {c:'Bangladesh',z:'孟加拉国',k:'Asia',la:23.69,lo:90.36},
+    {c:'Sri Lanka',z:'斯里兰卡',k:'Asia',la:7.87,lo:80.77},
+    {c:'Nepal',z:'尼泊尔',k:'Asia',la:28.39,lo:84.12},
+    {c:'Myanmar',z:'缅甸',k:'Asia',la:21.92,lo:96.08},
+    {c:'Cambodia',z:'柬埔寨',k:'Asia',la:12.57,lo:104.99},
+    {c:'Mongolia',z:'蒙古',k:'Asia',la:46.86,lo:103.85},
+    {c:'Jordan',z:'约旦',k:'Asia',la:30.59,lo:36.24},
+    {c:'Lebanon',z:'黎巴嫩',k:'Asia',la:33.85,lo:35.86},
+    {c:'Kuwait',z:'科威特',k:'Asia',la:29.31,lo:47.48},
+    {c:'Oman',z:'阿曼',k:'Asia',la:21.47,lo:55.98},
+    {c:'Bahrain',z:'巴林',k:'Asia',la:25.93,lo:50.64},
+    {c:'Mexico',z:'墨西哥',k:'North America',la:23.63,lo:-102.55},
+    {c:'Cuba',z:'古巴',k:'North America',la:21.52,lo:-77.78},
+    {c:'Jamaica',z:'牙买加',k:'North America',la:18.11,lo:-77.30},
+    {c:'Panama',z:'巴拿马',k:'North America',la:8.54,lo:-80.78},
+    {c:'Costa Rica',z:'哥斯达黎加',k:'North America',la:9.75,lo:-83.75},
+    {c:'Guatemala',z:'危地马拉',k:'North America',la:15.78,lo:-90.23},
+    {c:'Dominican Republic',z:'多米尼加',k:'North America',la:18.74,lo:-70.16},
+    {c:'Fiji',z:'斐济',k:'Oceania',la:-17.71,lo:178.07},
+    {c:'Papua New Guinea',z:'巴布亚新几内亚',k:'Oceania',la:-6.31,lo:143.96},
+    {c:'Brazil',z:'巴西',k:'South America',la:-14.24,lo:-51.93},
+    {c:'Argentina',z:'阿根廷',k:'South America',la:-38.42,lo:-63.62},
+    {c:'Chile',z:'智利',k:'South America',la:-35.68,lo:-71.54},
+    {c:'Colombia',z:'哥伦比亚',k:'South America',la:4.57,lo:-74.30},
+    {c:'Peru',z:'秘鲁',k:'South America',la:-9.19,lo:-75.02},
+    {c:'Ecuador',z:'厄瓜多尔',k:'South America',la:-1.83,lo:-78.18},
+    {c:'Uruguay',z:'乌拉圭',k:'South America',la:-32.52,lo:-55.77},
+    {c:'Venezuela',z:'委内瑞拉',k:'South America',la:6.42,lo:-66.59},
+    {c:'South Africa',z:'南非',k:'Africa',la:-30.56,lo:22.94},
+    {c:'Egypt',z:'埃及',k:'Africa',la:26.82,lo:30.80},
+    {c:'Nigeria',z:'尼日利亚',k:'Africa',la:9.08,lo:8.68},
+    {c:'Kenya',z:'肯尼亚',k:'Africa',la:-0.02,lo:37.91},
+    {c:'Morocco',z:'摩洛哥',k:'Africa',la:31.79,lo:-7.09},
+    {c:'Ghana',z:'加纳',k:'Africa',la:7.95,lo:-1.02},
+    {c:'Tanzania',z:'坦桑尼亚',k:'Africa',la:-6.37,lo:34.89},
+    {c:'Uganda',z:'乌干达',k:'Africa',la:1.37,lo:32.29},
+    {c:'Ethiopia',z:'埃塞俄比亚',k:'Africa',la:9.15,lo:40.49},
+    {c:'Tunisia',z:'突尼斯',k:'Africa',la:33.89,lo:9.54},
+    {c:'Algeria',z:'阿尔及利亚',k:'Africa',la:28.03,lo:1.66},
+    {c:'Senegal',z:'塞内加尔',k:'Africa',la:14.50,lo:-14.45},
+    {c:'Zimbabwe',z:'津巴布韦',k:'Africa',la:-19.02,lo:29.15},
+    {c:'Zambia',z:'赞比亚',k:'Africa',la:-13.13,lo:27.85},
+    {c:'Rwanda',z:'卢旺达',k:'Africa',la:-1.94,lo:29.87},
+    {c:'Mauritius',z:'毛里求斯',k:'Africa',la:-20.35,lo:57.55}
+  ];
 
   let state = loadState();
   let charts = {};
@@ -501,6 +651,7 @@
 
   function renderAll() {
     recompute();
+    populateCountryOptions();
     renderStats();
     renderMap();
     renderDetail();
@@ -556,6 +707,106 @@
     saveState();
     renderAll();
   };
+  // ----- 添加新录取记录（自动统计到全局）-----
+  function populateCountryOptions() {
+    const dl = document.getElementById('countryOptions');
+    const seen = new Set();
+    let html = '';
+    // 已有国家优先
+    state.countries.forEach(c => {
+      if (seen.has(c.country)) return;
+      seen.add(c.country);
+      const db = COUNTRY_DB.find(x => x.c === c.country);
+      html += '<option value="' + c.country + '">' + (db ? db.z : '') + '</option>';
+    });
+    // 坐标库中的其他国家
+    COUNTRY_DB.forEach(x => {
+      if (seen.has(x.c)) return;
+      seen.add(x.c);
+      html += '<option value="' + x.c + '">' + x.z + '</option>';
+      html += '<option value="' + x.z + '">' + x.c + '</option>';
+    });
+    dl.innerHTML = html;
+  }
+
+  // 解析用户输入的国家：支持代码(US)或中文(美国)，返回 {code, continent, lat, lon}
+  function resolveCountry(input) {
+    const v = (input || '').trim();
+    if (!v) return null;
+    const lower = v.toLowerCase();
+    // 1) 精确匹配代码
+    let hit = COUNTRY_DB.find(x => x.c.toLowerCase() === lower);
+    if (hit) return { code: hit.c, continent: hit.k, lat: hit.la, lon: hit.lo };
+    // 2) 匹配中文名
+    hit = COUNTRY_DB.find(x => x.z === v);
+    if (hit) return { code: hit.c, continent: hit.k, lat: hit.la, lon: hit.lo };
+    // 3) 匹配已有数据里的国家名（可能之前自定义过）
+    const exist = state.countries.find(c => c.country.toLowerCase() === lower);
+    if (exist) return { code: exist.country, continent: exist.continent, lat: exist.lat, lon: exist.lon };
+    return null;
+  }
+
+  window.addRecord = function() {
+    if (!isAdmin()) return;
+    const nameEl = document.getElementById('newUniName');
+    const countryEl = document.getElementById('newCountry');
+    const countEl = document.getElementById('newCount');
+    const msgEl = document.getElementById('addMsg');
+    msgEl.className = 'add-msg';
+    msgEl.textContent = '';
+
+    const uniName = (nameEl.value || '').trim();
+    const count = parseInt(countEl.value, 10);
+    if (!uniName) { msgEl.className = 'add-msg err'; msgEl.textContent = '请填写大学名称。'; return; }
+    if (!count || count < 1) { msgEl.className = 'add-msg err'; msgEl.textContent = '录取数量需为正整数。'; return; }
+    const c = resolveCountry(countryEl.value);
+    if (!c) {
+      msgEl.className = 'add-msg err';
+      msgEl.textContent = '未识别的国家/地区：「' + countryEl.value + '」，请从下拉列表中选择（需含地图坐标）。';
+      return;
+    }
+
+    // 找国家
+    let country = state.countries.find(x => x.country === c.code);
+    let newCountry = false;
+    if (!country) {
+      country = { country: c.code, continent: c.continent, lat: c.lat, lon: c.lon, schools: [] };
+      state.countries.push(country);
+      newCountry = true;
+    }
+    // 找大学（忽略大小写与首尾空格）
+    const key = uniName.toLowerCase();
+    let school = country.schools.find(s => (s.name || '').trim().toLowerCase() === key);
+    let merged = false;
+    if (school) {
+      school.count = (parseInt(school.count) || 0) + count;
+      merged = true;
+    } else {
+      country.schools.push({ name: uniName, count: count });
+    }
+
+    // 选中该国家并全量重算
+    state.selectedCountry = country.country;
+    recompute();
+    saveState();
+    renderAll();
+
+    const db = COUNTRY_DB.find(x => x.c === c.code);
+    const label = db ? db.z + ' (' + c.code + ')' : c.code;
+    let tip;
+    if (newCountry) tip = '✅ 已新增国家「' + label + '」并添加「' + uniName + '」' + count + ' 人，已出现在地图。';
+    else if (merged) tip = '✅ 「' + uniName + '」已存在，录取数量累加 ' + count + ' 人（现共 ' + school.count + ' 人）。';
+    else tip = '✅ 已在「' + label + '」新增「' + uniName + '」' + count + ' 人。';
+    msgEl.className = 'add-msg ok';
+    msgEl.textContent = tip;
+
+    // 清空输入，提示保留
+    nameEl.value = '';
+    countEl.value = 1;
+    nameEl.focus();
+    document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
   window.resetData = function() {
     if (!isAdmin()) return;
     if (!confirm('确定恢复默认数据？当前修改将丢失。')) return;
@@ -579,6 +830,10 @@
     state.sortBy = e.target.value;
     saveState();
     renderTable();
+  });
+  document.getElementById('addForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    addRecord();
   });
 
   // ----- PWA install -----
